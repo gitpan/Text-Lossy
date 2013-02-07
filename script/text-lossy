@@ -1,0 +1,32 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use open ':std', IO => ':utf8'; # all is utf8!
+
+use Text::Lossy;
+
+my $lossy = Text::Lossy->new();
+# We'll start with three "sensible" filters.
+$lossy->add_filters(qw( lower punctuation whitespace ));
+
+# The 'whitespace' filter would replace the "\n" at the end of
+# line with a space. Since we are working line-wise, we need
+# to emulate this by adding a space after each "real" line.
+
+my $end_of_line = " ";
+my $allow_empty_lines = 0;
+
+while (my $line = <>) {
+    chomp $line;
+    $line = $lossy->filter($line);
+    print $line;
+    if (eof()) {
+        # We add a newline at the very very end, just to be nice
+        print "\n";
+        last; # see perldoc -f eof
+    } elsif ($allow_empty_lines or length( $line // q() )) {
+        # We may require "full" lines, and "0" counts, too!
+        print $end_of_line;
+    }
+}
