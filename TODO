@@ -1,6 +1,6 @@
 Proposed changes to Text::Lossy :
 
-- remove filter selecting methods in favour of 'add_filters'
-- rename 'add_filters' to 'add'
-- add a 'clear' method to remove filters
-- add 'first_line / last_line' options to filters.
+- add an 'available_filters' class method
+- add a 'filter stash' hashref to pass to each filter
+- add a 'eof' method and 'eof' filter parameter
+- add a 'rewind' method to clear stashes

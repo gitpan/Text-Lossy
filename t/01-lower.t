@@ -6,20 +6,20 @@ use Test::More;
 
 use Text::Lossy;
 
-my $lossy = Text::Lossy->new->lower;
+my $lossy = Text::Lossy->new->add('lower');
 
 # ascii
-is($lossy->filter('Hello, World!'), 'hello, world!', "ASCII lowercase");
-is($lossy->filter('hello, world!'), 'hello, world!', "No change on already lower");
+is($lossy->process('Hello, World!'), 'hello, world!', "ASCII lowercase");
+is($lossy->process('hello, world!'), 'hello, world!', "No change on already lower");
 
 # latin1
-is($lossy->filter('TÜR schließen'), 'tür schließen', "Latin1 one");
-is($lossy->filter('FRÊRE ÇA JALAPEÑO'), 'frêre ça jalapeño', "Latin1 two");
+is($lossy->process('TÜR schließen'), 'tür schließen', "Latin1 one");
+is($lossy->process('FRÊRE ÇA JALAPEÑO'), 'frêre ça jalapeño', "Latin1 two");
 
 # Greek
-is($lossy->filter('ΑΒΓΔ'), 'αβγδ', "Greek");
+is($lossy->process('ΑΒΓΔ'), 'αβγδ', "Greek");
 
 # Kyrillic
-is($lossy->filter('АБДЖ'), 'абдж', "Cyrillic");
+is($lossy->process('АБДЖ'), 'абдж', "Cyrillic");
 
 done_testing();

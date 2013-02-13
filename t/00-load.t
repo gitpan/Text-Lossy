@@ -13,8 +13,8 @@ diag( "Testing Text::Lossy $Text::Lossy::VERSION, Perl $], $^X" );
 
 for my $sub (qw(
     new
-    filter
-    add_filters
+    process
+    add
     as_coderef
 
     lower

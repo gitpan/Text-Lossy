@@ -21,8 +21,12 @@ t/01-lower.t
 t/02-whitespace.t
 t/03-punctuation.t
 t/04-alphabetize.t
+t/05-add.t
+t/06-clear.t
+t/07-list.t
 t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
+
 META.yml                                 Module meta-data (added by MakeMaker)

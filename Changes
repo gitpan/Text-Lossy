@@ -1,5 +1,13 @@
 Revision history for Text-Lossy
 
+0.02    2013-02-13
+        - Character semantics for newer Perls (died before)
+        - New method 'list' for listing selected filters
+        - New method 'clear' to clear filter selections
+        - Renamed 'filter' to 'process'
+        - Renamed 'add_filters' to add
+
+
 0.01    2013-01-08
         First version: OO-interface for four filters
 

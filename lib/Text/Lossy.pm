@@ -5,17 +5,19 @@ use strict;
 use warnings;
 use utf8;
 
+use Carp;
+
 =head1 NAME
 
 Text::Lossy - Lossy text compression
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 =head1 SYNOPSIS
@@ -23,13 +25,13 @@ our $VERSION = '0.01';
     use Text::Lossy;
 
     my $lossy = Text::Lossy->new;
-    $lossy->whitespace;
-    my $short = $lossy->filter($long);
+    $lossy->add('whitespace');
+    my $short = $lossy->process($long);
 
-    my $lossy = Text::Lossy->new->lower->punctuation;  # Chaining usage
+    my $lossy = Text::Lossy->new->add('lower', 'punctuation');  # Chaining usage
 
-    $lossy->filter($long); # In place
-    $lossy->filter();      # Filters $_ in place
+    $lossy->process($long); # In place
+    $lossy->process();      # Filters $_ in place
 
 =head1 DESCRIPTION
 
@@ -50,9 +52,9 @@ most likely in a backwards-incompatible manner. You have been warned.
 
 C<Text::Lossy> uses an object oriented interface. You create a new
 C<Text::Lossy> object, set the filters you wish to use (described below),
-and call the L</filter> method on the object. You can call this
+and call the L</process> method on the object. You can call this
 method as often as you like. In addition, there is a method which produces
-a closure, an anonymous subroutine, that acts like the filter method on
+a closure, an anonymous subroutine, that acts like the process method on
 the given object.
 
 =head2 Adding new filters
@@ -72,6 +74,8 @@ our %filtermap;
 
 =head2 new
 
+    my $lossy = Text::Lossy->new();
+
 The constructor for a new lossy text compressor. The constructor is quite 
 light-weight; the only purpose of a compressor object is to accept and remember
 a sequence of filters to apply to text.
@@ -90,44 +94,93 @@ sub new {
 
 =head1 METHODS
 
-=head2 filter
+=head2 process
+
+    my $new_text = $lossy->process( $old_text );
 
 This method takes a single text string, applies all the selected filters
 to it, and returns the filtered string. Filters are selected via 
-L</add_filters>
+L</add>
 or equivalently via the selector methods below; see L<FILTERS>.
+
+The text is upgraded to character semantics via a call to
+C<utf8::upgrade>, see L<utf8>. This will not change the text you passed
+in, nor should it have too surprising an effect on the output.
 
 =cut
 
-sub filter {
+sub process {
     my ($self, $text) = @_;
+    utf8::upgrade($text);
     foreach my $f (@{$self->{'filters'}}) {
-        $text = $f->($text);
+        $text = $f->{'code'}->($text);
     }
     return $text;
 }
 
-=head2 add_filters
+=head2 add
+
+    $lossy->add( 'lower', 'whitespace' );
 
 This method takes a list of filter names and adds them to the filter list
-of the filter object, in the order given. The primary use of this method
-is the programmatic selection of filters, for example via command line.
+of the filter object, in the order given. This allows a programmatic
+selection of filters, for example via command line. Returns the object
+for method chaining.
+
+If the filter is unknown, an exception is thrown. This may happen when you
+misspell the name, or forgot to use a module which registers the filter,
+or forgot to register it yourself.
 
 =cut
 
-sub add_filters {
+sub add {
     my ($self, @filters) = @_;
     foreach my $name (@filters) {
         my $code = $filtermap{$name};
-        next unless $code; # a warning might be nice at this point...
-        push @{$self->{'filters'}}, $code;
+        if (not $code) {
+            croak "Unknown filter $name (did you forget to use the right module?)";
+        }
+        push @{$self->{'filters'}}, { code => $code, name => $name };
     }
+    return $self;
+}
+
+=head2 clear
+
+    $lossy->clear();
+
+Remove the filters from the filter object. The object will behave as
+if newly constructed. Returns the object for method chaining.
+
+=cut
+
+sub clear {
+    my ($self) = @_;
+    @{$self->{'filters'}} = ();
+    return $self;
+}
+
+=head2 list
+
+    my @names = $lossy->list();
+
+List the filters added to this object, in order. The names (not the
+code) are returned in a list.
+
+=cut
+
+sub list {
+    my ($self) = @_;
+    return map $_->{'name'}, @{$self->{'filters'}};
 }
 
 =head2 as_coderef
 
+    my $code = $lossy->as_coderef();
+    $new_text = $code->( $old_text );
+
 Returns a code reference that closes over the object. This code reference
-acts like a bound L</filter> method on the constructed object. It
+acts like a bound L</process> method on the constructed object. It
 can be used in places like L<Text::Filter> that expect a code reference that
 filters text.
 
@@ -140,7 +193,7 @@ the behaviour of the code reference.
 sub as_coderef {
     my ($self) = @_;
     return sub {
-        return $self->filter(@_);
+        return $self->process(@_);
     }
 }
 
@@ -149,9 +202,7 @@ sub as_coderef {
 The following filters are defined by this module. Other modules may define
 more filters.
 
-Each of these filters can be added to the set via the L</add_filter> method,
-or by using its name as an object method on the filtering object,
-i.e. C<< $lossy->lower >>.
+Each of these filters can be added to the set via the L</add> method.
 
 =head2 lower
 
@@ -161,12 +212,6 @@ to and including its Unicode handling.
 =cut
 
 sub lower {
-    my ($self) = @_;
-    $self->add_filters('lower');
-    return $self;
-}
-
-sub _lower {
     my ($text) = @_;
     return lc($text);
 }
@@ -180,16 +225,10 @@ to account for line continuations or a new line marker at the end.
 =cut
 
 sub whitespace {
-    my ($self) = @_;
-    $self->add_filters('whitespace');
-    return $self;
-}
-
-sub _whitespace {
     my ($text) = @_;
-    $text =~ s{ \s+ }{ }xmsgu;
-    $text =~ s{ \A \s+ }{}xmsgu;
-    $text =~ s{ \s+ \z}{}xmsgu;
+    $text =~ s{ \s+ }{ }xmsg;
+    $text =~ s{ \A \s+ }{}xmsg;
+    $text =~ s{ \s+ \z}{}xmsg;
     return $text;
 }
 
@@ -201,14 +240,8 @@ nothing, removing it completely.
 =cut
 
 sub punctuation {
-    my ($self) = @_;
-    $self->add_filters('punctuation');
-    return $self;
-}
-
-sub _punctuation {
     my ($text) = @_;
-    $text =~ s{ \p{Punctuation} }{}xmsgu;
+    $text =~ s{ \p{Punctuation} }{}xmsg;
     return $text;
 }
 
@@ -225,13 +258,8 @@ uses end-of-word matches C<\b> to determine which letters to leave alone.
 =cut
 
 sub alphabetize {
-    my ($self) = @_;
-    $self->add_filters('alphabetize');
-    return $self;
-}
-sub _alphabetize {
     my ($text) = @_;
-    $text =~ s{ \b (\p{Alpha}) (\p{Alpha}+) (\p{Alpha}) \b }{ $1 . join('', sort split(//,$2)) . $3 }xmsegu;
+    $text =~ s{ \b (\p{Alpha}) (\p{Alpha}+) (\p{Alpha}) \b }{ $1 . join('', sort split(//,$2)) . $3 }xmseg;
     return $text;
 }
 
@@ -250,25 +278,22 @@ L</register_filters> function:
 
 =head2 register_filters
 
-  Text::Lossy::register_filters(
+  Text::Lossy->register_filters(
       change_stuff => \&Other::Module::change_text,
       remove_ps    => sub { my ($text) = @_; $text =~ s{[Pp]}{}; return $text; },
   );
 
 Adds one or more named filters to the set of available filters. Filters are
 passed in an anonymous hash.
-
 Previously defined mappings may be overwritten by this function. 
-This function does B<not> add named setting methods to the object; you
-will have to install these yourself.
 
 =cut
 
 %filtermap = (
-    'lower' => \&_lower,
-    'whitespace' => \&_whitespace,
-    'punctuation' => \&_punctuation,
-    'alphabetize' => \&_alphabetize,
+    'lower' => \&lower,
+    'whitespace' => \&whitespace,
+    'punctuation' => \&punctuation,
+    'alphabetize' => \&alphabetize,
 );
 
 sub register_filters {
