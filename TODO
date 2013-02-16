@@ -1,6 +1,10 @@
 Proposed changes to Text::Lossy :
 
-- add an 'available_filters' class method
+Stashes:
 - add a 'filter stash' hashref to pass to each filter
 - add a 'eof' method and 'eof' filter parameter
 - add a 'rewind' method to clear stashes
+
+Basic filters:
+
+Other filters:

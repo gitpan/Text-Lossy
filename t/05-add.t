@@ -3,23 +3,7 @@ use warnings;
 use utf8;
 
 use Test::More;
-#use Test::Exception;
-sub throws_ok(&$;$) {
-    my ($code, $regex, $message) = @_;
-    eval {
-        $code->();
-    };
-    if (not $@) {
-        fail($message);
-        diag("Code did not die");
-    } elsif ($@ !~ m{$regex}) {
-        fail($message);
-        diag("Error '$@' did not match $regex");
-    } else {
-        pass($message);
-    }
-    return;
-}
+use Test::Exception;
 
 use Text::Lossy;
 

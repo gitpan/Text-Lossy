@@ -13,11 +13,11 @@ Text::Lossy - Lossy text compression
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =cut
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 
 =head1 SYNOPSIS
@@ -201,7 +201,6 @@ sub as_coderef {
 
 The following filters are defined by this module. Other modules may define
 more filters.
-
 Each of these filters can be added to the set via the L</add> method.
 
 =head2 lower
@@ -220,15 +219,49 @@ sub lower {
 
 Collapses any whitespace (C<\s> in regular expressions) to a single space, C<U+0020>.
 Whitespace at the beginning and end of the text is stripped; you may need to add some
-to account for line continuations or a new line marker at the end.
+to account for line continuations or a new line marker at the end, or use the
+L</whitespace_nl> filter below.
 
 =cut
 
 sub whitespace {
     my ($text) = @_;
     $text =~ s{ \s+ }{ }xmsg;
-    $text =~ s{ \A \s+ }{}xmsg;
-    $text =~ s{ \s+ \z}{}xmsg;
+    $text =~ s{ \A \s+ }{}xms;
+    $text =~ s{ \s+ \z}{}xms;
+    return $text;
+}
+
+=head2 whitespace_nl
+
+A variant of the L</whitespace> filter that leaves newlines on the end of the text
+alone. Other whitespace at the end will get collapsed into a single newline.
+If the text does not end in whitespace that contains a new line, it is removed
+completely, as before.
+
+This filter is most useful if you are creating a Unix-style text filter, and do not
+want to buffer the entire input before writing the (only) line to C<stdout>. The
+newline at the end will allow downstream processes to work on new lines, too.
+Otherwise, this filter is not quite as efficient as the L<whitespace> filter.
+
+Any newlines in the middle of text are collapsed to a space, too. This is especially
+useful if you are reading in "paragraph mode", e.g. C<$/ = ''>, as you will get
+one long line per former paragraph.
+
+=cut
+
+sub whitespace_nl {
+    my ($text) = @_;
+    # Remember whether a newline was present, 
+    my $has_nl = ($text =~ m{ \n \s* \z }xms) ? 1 : 0;
+    $text =~ s{ \s+ }{ }xmsg;
+    $text =~ s{ \A \s+ }{}xms;
+    # ...remove it as before,
+    $text =~ s{ \s+ \z}{}xms;
+    # ...and add one back if necessary.
+    if ($has_nl) {
+        $text .= "\n";
+    }
     return $text;
 }
 
@@ -241,7 +274,23 @@ nothing, removing it completely.
 
 sub punctuation {
     my ($text) = @_;
-    $text =~ s{ \p{Punctuation} }{}xmsg;
+    # Turns out '\p{Punctuation}' fails on Perl 5.6, use the abbreviation '\pP' instead
+    $text =~ s{ \pP }{}xmsg;
+    return $text;
+}
+
+=head2 punctuation_sp
+
+A variant of L</punctuation> that replaces punctuation with a space character, C<U+0020>,
+instead of removing it completely. This is usually less efficient for compression, but
+retains more readability, for example in the presence of URLs or email addresses.
+
+=cut
+
+sub punctuation_sp {
+    my ($text) = @_;
+    # Turns out '\p{Punctuation}' fails on Perl 5.6, use the abbreviation '\pP' instead
+    $text =~ s{ \pP }{ }xmsg;
     return $text;
 }
 
@@ -267,14 +316,11 @@ sub alphabetize {
 # - unidecode (separate module)
 # - normalize (separate module)
 
-=head1 CREATING FILTERS
+=head1 CLASS METHODS
 
-A filter is a subroutine which takes a single parameter (the text to be converted) and
-returns the filtered text. The text may also be changed in-place, as long as it is
-returned again. 
-
-These filters are then made available to the rest of the system via the
-L</register_filters> function:
+These methods are not called on a filter object, but on the class C<Text::Lossy>
+itself. They are typically concerned with the filters that can be added to filter
+objects.
 
 =head2 register_filters
 
@@ -286,23 +332,53 @@ L</register_filters> function:
 Adds one or more named filters to the set of available filters. Filters are
 passed in an anonymous hash.
 Previously defined mappings may be overwritten by this function. 
+Specifically, passing C<undef> as the code reference removes the filter.
 
 =cut
 
 %filtermap = (
     'lower' => \&lower,
     'whitespace' => \&whitespace,
+    'whitespace_nl' => \&whitespace_nl,
     'punctuation' => \&punctuation,
+    'punctuation_sp' => \&punctuation_sp,
     'alphabetize' => \&alphabetize,
 );
 
 sub register_filters {
     my ($class, %mapping) = @_;
     foreach my $name (keys %mapping) {
-        $filtermap{$name} = $mapping{$name};
+        if (defined $mapping{$name}) {
+            $filtermap{$name} = $mapping{$name};
+        } else {
+            delete $filtermap{$name};
+        }
     }
     return;
 }
+
+=head2 available_filters
+
+    my @filters = Text::Lossy->available_filters();
+
+Lists the available filters at this point in time, specifically their names
+as used by L</add> and L</register_filters>. The list is sorted alphabetically.
+
+=cut
+
+sub available_filters {
+    my ($class) = @_;
+    return sort keys %filtermap;
+}
+
+=head1 CREATING FILTERS
+
+A filter is a subroutine which takes a single parameter (the text to be converted) and
+returns the filtered text. The text may also be changed in-place, as long as it is
+returned again. 
+
+These filters are then made available to the rest of the system via the
+L</register_filters> function.
 
 =head1 USAGE WITH Text::Filter
 
