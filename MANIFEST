@@ -11,8 +11,8 @@ script/text-lossy   A command-line text filter for lossy compression
 
 # Documentation
 Changes             The changelog
-README.md           The github readme, in markdown
-README              The exact same as "README", but for others
+# README.md         The github readme, in markdown (no longer in manifest)
+README              The exact same as "README.md", but for others
 TODO                The list of proposed changes
 
 # Tests
@@ -28,6 +28,7 @@ t/08-register_filters.t
 t/09-available_filters.t
 t/10-whitespace_nl.t
 t/11-punctuation_sp.t
+t/12-process.t
 t/boilerplate.t
 t/manifest.t
 t/pod-coverage.t

@@ -1,5 +1,13 @@
 Revision history for Text-Lossy
 
+0.04    2013-02-24
+        - Raised required perl version to 5.8
+        - Automatic "generation" of README from README.md
+        - Better documentation for Text::Filter usage
+        - process with undef and empty list clarified
+        - Working 'text-lossy' executable script
+        - Filter 'whitespace' leaves a space at the end
+
 0.03    2013-02-16
         - New filters: 'whitespace_nl' and 'punctuation_sp'
         - Bugfix: Use \pP instead of \p{Punctuation} (confused Perl 5.6)

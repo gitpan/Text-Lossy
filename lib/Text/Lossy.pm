@@ -1,6 +1,6 @@
 package Text::Lossy;
 
-use 5.006;
+use 5.008;
 use strict;
 use warnings;
 use utf8;
@@ -13,11 +13,11 @@ Text::Lossy - Lossy text compression
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 
 =head1 SYNOPSIS
@@ -63,9 +63,6 @@ New filters can be added with the L</register_filters> class method.
 Each filter is a subroutine which takes a single string and returns this
 string filtered.
 
-Selector methods are B<not> automatically added; this is the responsibility
-of the code registering the filters, if desired.
-
 =cut
 
 our %filtermap;
@@ -76,7 +73,7 @@ our %filtermap;
 
     my $lossy = Text::Lossy->new();
 
-The constructor for a new lossy text compressor. The constructor is quite 
+The constructor for a new lossy text compressor. The constructor is quite
 light-weight; the only purpose of a compressor object is to accept and remember
 a sequence of filters to apply to text.
 
@@ -99,18 +96,24 @@ sub new {
     my $new_text = $lossy->process( $old_text );
 
 This method takes a single text string, applies all the selected filters
-to it, and returns the filtered string. Filters are selected via 
-L</add>
-or equivalently via the selector methods below; see L<FILTERS>.
+to it, and returns the filtered string. Filters are selected via
+L</add>; see L<FILTERS>.
 
 The text is upgraded to character semantics via a call to
 C<utf8::upgrade>, see L<utf8>. This will not change the text you passed
 in, nor should it have too surprising an effect on the output.
 
+If no text is passed in, nothing is returned (the empty list or C<undef>,
+depending on context).
+If an explicit C<undef> is passed in, an explicit C<undef> is returned, even in
+list context.
+
 =cut
 
 sub process {
     my ($self, $text) = @_;
+    return unless @_ > 1;
+    return undef unless defined $text;
     utf8::upgrade($text);
     foreach my $f (@{$self->{'filters'}}) {
         $text = $f->{'code'}->($text);
@@ -218,17 +221,17 @@ sub lower {
 =head2 whitespace
 
 Collapses any whitespace (C<\s> in regular expressions) to a single space, C<U+0020>.
-Whitespace at the beginning and end of the text is stripped; you may need to add some
-to account for line continuations or a new line marker at the end, or use the
-L</whitespace_nl> filter below.
+Whitespace at the beginning of the text is stripped completely. Whitespace at the end
+is also collapsed to a single space, to help separate lines. Text consisting only
+of whitespace results in an empty string.
 
 =cut
 
 sub whitespace {
     my ($text) = @_;
     $text =~ s{ \s+ }{ }xmsg;
+    # the above line also works for the end of the text
     $text =~ s{ \A \s+ }{}xms;
-    $text =~ s{ \s+ \z}{}xms;
     return $text;
 }
 
@@ -236,8 +239,8 @@ sub whitespace {
 
 A variant of the L</whitespace> filter that leaves newlines on the end of the text
 alone. Other whitespace at the end will get collapsed into a single newline.
-If the text does not end in whitespace that contains a new line, it is removed
-completely, as before.
+If the text ends in whitespace that does not contain a new line, it is replaced
+by a space, as before.
 
 This filter is most useful if you are creating a Unix-style text filter, and do not
 want to buffer the entire input before writing the (only) line to C<stdout>. The
@@ -252,15 +255,14 @@ one long line per former paragraph.
 
 sub whitespace_nl {
     my ($text) = @_;
-    # Remember whether a newline was present, 
+    # Remember whether a newline was present
     my $has_nl = ($text =~ m{ \n \s* \z }xms) ? 1 : 0;
     $text =~ s{ \s+ }{ }xmsg;
     $text =~ s{ \A \s+ }{}xms;
-    # ...remove it as before,
-    $text =~ s{ \s+ \z}{}xms;
-    # ...and add one back if necessary.
+    # whitespace-at-end is now a space
     if ($has_nl) {
-        $text .= "\n";
+        # replace this space with a newline
+        $text =~ s{ \s+ \z }{\n}xms;
     }
     return $text;
 }
@@ -331,7 +333,7 @@ objects.
 
 Adds one or more named filters to the set of available filters. Filters are
 passed in an anonymous hash.
-Previously defined mappings may be overwritten by this function. 
+Previously defined mappings may be overwritten by this function.
 Specifically, passing C<undef> as the code reference removes the filter.
 
 =cut
@@ -375,7 +377,7 @@ sub available_filters {
 
 A filter is a subroutine which takes a single parameter (the text to be converted) and
 returns the filtered text. The text may also be changed in-place, as long as it is
-returned again. 
+returned again.
 
 These filters are then made available to the rest of the system via the
 L</register_filters> function.
@@ -383,8 +385,20 @@ L</register_filters> function.
 =head1 USAGE WITH Text::Filter
 
 The L<Text::Filter> module provides an infrastructure for filtering text, but no actual filters.
-It can be used with C<Text::Lossy> by passing the result of L</as_coderef> as the C<filter> 
+It can be used with C<Text::Lossy> by passing the result of L</as_coderef> as the C<filter>
 parameter.
+
+It is recommended to set L<Text::Filter> to leave line endings alone when using the L</whitespace>
+filter, i.e. the L<input_postread|Text::Filter/input_postread> and
+L<output_prewrite|Text::Filter/output_prewrite> should be C<0>. This is the default
+for L<Text::Filter>. It will allow L</whitespace> to perform its assigned task on line endings.
+
+One thing to note is that the C<Text::Lossy> filters do not follow the L<Text::Filter>'s convention
+that lines "to be skipped" should result in an C<undef>.
+This means you need to expect completely empty lines (C<q{}>, not even a newline character) in
+your output.
+This should be no problem if you print to a file handle or append to a string, but may be surprising
+if you are filtering an array of lines.
 
 =head1 EXPORT
 
