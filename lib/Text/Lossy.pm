@@ -13,11 +13,11 @@ Text::Lossy - Lossy text compression
 
 =head1 VERSION
 
-Version 0.04
+Version 0.40.1
 
 =cut
 
-our $VERSION = '0.04';
+use version 0.77; our $VERSION = version->declare('v0.40.1');
 
 
 =head1 SYNOPSIS

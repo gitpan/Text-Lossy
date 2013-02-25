@@ -11,7 +11,6 @@ WriteMakefile(
     ($ExtUtils::MakeMaker::VERSION >= 6.3002
       ? ('LICENSE'=> 'perl')
       : ()),
-    PL_FILES            => { 'un-markdown.PL' => 'README' },
     EXE_FILES           => ['script/text-lossy'],
     PREREQ_PM => {
         'Test::More' => 0,

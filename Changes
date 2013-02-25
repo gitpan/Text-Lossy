@@ -1,5 +1,9 @@
 Revision history for Text-Lossy
 
+0.40.1  2013-02-25
+        - use 'version.pm' for version declaration
+        - Switched back to two real, distinct README files.
+
 0.04    2013-02-24
         - Raised required perl version to 5.8
         - Automatic "generation" of README from README.md

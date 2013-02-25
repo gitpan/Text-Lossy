@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Text-Lossy
-version:            0.04
+version:            v0.40.1
 abstract:           Lossy text compression
 author:
     - Ben Deutsch <ben@bendeutsch.de>
