@@ -1,5 +1,8 @@
 Revision history for Text-Lossy
 
+0.40.2  2013-02-28
+        - Bugfix: boilerplate test on README, not README.md
+
 0.40.1  2013-02-25
         - use 'version.pm' for version declaration
         - Switched back to two real, distinct README files.
@@ -27,4 +30,3 @@ Revision history for Text-Lossy
 
 0.01    2013-01-08
         First version: OO-interface for four filters
-
